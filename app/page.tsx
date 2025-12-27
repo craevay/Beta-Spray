@@ -9,11 +9,14 @@ export default function HomePage() {
 
   useEffect(() => {
     const setupProfileAndRedirect = async () => {
-      // 1. Get session
+      /**
+       * 1. Get auth session
+       */
       const {
         data: { session },
       } = await supabase.auth.getSession();
 
+      // Not logged in → login
       if (!session) {
         router.replace("/login");
         return;
@@ -21,39 +24,49 @@ export default function HomePage() {
 
       const user = session.user;
 
-      // 2. Fetch profile (INCLUDING gym_id)
-      const { data: profile } = await supabase
+      /**
+       * 2. Fetch profile
+       */
+      const { data: profile, error } = await supabase
         .from("profiles")
         .select("id, gym_id")
         .eq("id", user.id)
         .single();
 
-      // 3. Create profile if it does not exist
+      /**
+       * 3. Profile does NOT exist → create it
+       */
       if (!profile) {
-        const { error } = await supabase.from("profiles").insert({
-          id: user.id,
-          username: user.email?.split("@")[0],
-          climbing_level: "beginner",
-        });
+        const { error: insertError } = await supabase
+          .from("profiles")
+          .insert({
+            id: user.id,
+            username: user.email?.split("@")[0],
+            climbing_level: "beginner",
+            gym_id: null, // IMPORTANT: explicitly null
+          });
 
-        if (error) {
-          console.error("Profile creation failed:", error);
+        if (insertError) {
+          console.error("Profile creation failed:", insertError);
           return;
         }
 
-        // After creating profile, force gym onboarding
+        // New users must pick a gym
         router.replace("/onboarding/gym");
         return;
       }
 
-      // 4. Profile exists but no gym selected
-      if (!profile.gym_id || profile.gym_id.trim() === "") {
+      /**
+       * 4. Profile exists but no gym
+       */
+      if (!profile.gym_id) {
         router.replace("/onboarding/gym");
         return;
       }
 
-
-      // 5. Fully onboarded
+      /**
+       * 5. Fully onboarded
+       */
       router.replace("/feed");
     };
 

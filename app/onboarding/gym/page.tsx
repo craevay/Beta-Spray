@@ -1,56 +1,66 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 
 export default function GymOnboardingPage() {
-  const [gym, setGym] = useState("");
-  const [loading, setLoading] = useState(false);
   const router = useRouter();
+  const [gyms, setGyms] = useState<any[]>([]);
+  const [selectedGym, setSelectedGym] = useState<string | null>(null);
+
+  useEffect(() => {
+    const loadGyms = async () => {
+      const { data } = await supabase
+        .from("gyms")
+        .select("id, name, city, state")
+        .order("name");
+
+      setGyms(data || []);
+    };
+
+    loadGyms();
+  }, []);
 
   const handleSave = async () => {
-    setLoading(true);
-
     const {
-      data: { user },
-    } = await supabase.auth.getUser();
+      data: { session },
+    } = await supabase.auth.getSession();
 
-    if (!user) {
-      router.replace("/login");
-      return;
-    }
+    if (!session || !selectedGym) return;
 
-    const { error } = await supabase
+    await supabase
       .from("profiles")
-      .update({ gym_id: gym })
-      .eq("id", user.id);
+      .update({ gym_id: selectedGym })
+      .eq("id", session.user.id);
 
-    if (error) {
-      console.error(error);
-      alert("Failed to save gym");
-    } else {
-      router.replace("/feed");
-    }
-
-    setLoading(false);
+    router.replace("/feed");
   };
 
   return (
-    <main style={{ padding: 24 }}>
+    <div style={{ padding: "2rem", maxWidth: 500 }}>
       <h1>Select Your Gym</h1>
+      <p>You must choose a gym to continue.</p>
 
-      <input
-        type="text"
-        placeholder="Gym name (for now)"
-        value={gym}
-        onChange={(e) => setGym(e.target.value)}
-        style={{ display: "block", marginBottom: 12 }}
-      />
+      <select
+        value={selectedGym ?? ""}
+        onChange={(e) => setSelectedGym(e.target.value)}
+      >
+        <option value="">Select a gym</option>
+        {gyms.map((gym) => (
+          <option key={gym.id} value={gym.id}>
+            {gym.name} — {gym.city}
+          </option>
+        ))}
+      </select>
 
-      <button onClick={handleSave} disabled={loading || !gym}>
-        {loading ? "Saving..." : "Continue"}
+      <button
+        onClick={handleSave}
+        disabled={!selectedGym}
+        style={{ marginTop: 16 }}
+      >
+        Continue
       </button>
-    </main>
+    </div>
   );
 }
