@@ -5,6 +5,16 @@
   --foreground: #171717;
 }
 
+textarea {
+  background-color: #000;
+  color: #fff;
+  border: 1px solid #fff;
+}
+
+textarea::placeholder {
+  color: #aaa;
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
